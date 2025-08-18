@@ -10,7 +10,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 
 echo [3/4] 使用 PyInstaller 打包...
-pyinstaller --onefile --windowed PandasDataCatcher.py
+pyinstaller --onefile --windowed PandasDataCatcher_v_1_0_0.py
 
 echo [4/4] 打包完成！
 echo 產生的 exe 檔在 dist\ 資料夾裡。
