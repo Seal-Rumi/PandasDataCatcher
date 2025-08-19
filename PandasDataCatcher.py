@@ -142,7 +142,7 @@ class ExcelViewer:
             self.tree.column(col, width=120, anchor="center")
 
         # 顯示前 20 列資料
-        for _, row in df.head(100).iterrows():
+        for _, row in df.head(20).iterrows():
             self.tree.insert("", "end", values=list(row))
 
     def run(self):
