@@ -10,6 +10,7 @@
 
 4. 確認上傳無誤後, 使用RPG程式將USERMSP替換即可完成任務
 
+5. 申請書列印前可用excelPrintPacker自動編排格式
 
 <<功能>>
 excelPrintPacker.py     ---可自動編排excel格式方便影印
