@@ -1,0 +1,10 @@
+1. 使用excelArrange.py 抓取需要的欄位資料
+
+2. 倘若無提供擔當者code, 只有擔當者名字
+    可以使用tcodeTransfer.py 產生有tcode 的excel
+    會附上兩個工作表, 一個會顯示無對應資料 一個會將無對應資料去除
+
+3. 倘若以上確認後, 使用PandasDataCatcher_v_1_0_0.py抓取資料
+    並轉換成txt檔 上傳到400
+
+4. 確認上傳無誤後, 使用RPG程式將USERMSP替換即可完成任務
