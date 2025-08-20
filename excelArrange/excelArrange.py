@@ -106,7 +106,7 @@ class ExcelCustomizerApp:
         value_entry.config(state="normal")
 
         # 刪除按鈕
-        delete_btn = tk.Button(field_frame, text="🗑️", command=lambda f=field_frame: self.delete_field(f))
+        delete_btn = tk.Button(field_frame, text="Del", command=lambda f=field_frame: self.delete_field(f))
         delete_btn.pack(side="left", padx=5)
 
         def on_select(event):
