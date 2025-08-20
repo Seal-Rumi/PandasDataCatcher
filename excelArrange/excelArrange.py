@@ -59,8 +59,15 @@ class ExcelCustomizerApp:
         self.preview_table = None
 
     def load_file(self):
-        file_path = filedialog.askopenfilename(title="選擇 Excel 檔案", filetypes=[("Excel files", "*.xls *.xlsx")])
+        file_path = filedialog.askopenfilename(
+            title="選擇 Excel 檔案", 
+            filetypes=[("Excel files", "*.xlsx")]
+        )
         if not file_path:
+            return
+
+        if not file_path.lower().endswith(".xlsx"):
+            messagebox.showerror("錯誤", "目前程式僅支援 .xlsx 檔案")
             return
 
         self.file_label.config(text=file_path)
