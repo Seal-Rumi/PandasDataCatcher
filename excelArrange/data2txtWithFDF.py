@@ -10,21 +10,19 @@ class ExcelViewer:
         self.root.geometry("1200x700")
 
         self.file_path = None
-        self.fdf_path = None
         self.excel_file = None
+        self.fdf_path = None
         self.sheet_vars = {}
         self.column_vars = {}
-        self.fdf_fields = []   # 存放 FDF 欄位定義
+        self.fdf_fields = []
 
         # === 按鈕區 ===
         btn_frame = tk.Frame(root)
         btn_frame.pack(fill="x", pady=5)
 
-        # 生成文字檔（放左邊）
         self.btn_run = tk.Button(btn_frame, text="生成文字檔", command=self.run)
         self.btn_run.pack(side="left", padx=5)
 
-        # 子容器：選擇 Excel 與檔案名稱
         file_frame = tk.Frame(btn_frame)
         file_frame.pack(side="left", padx=5)
 
@@ -34,14 +32,13 @@ class ExcelViewer:
         self.lbl_filename = tk.Label(file_frame, text="（未選擇檔案）", anchor="w")
         self.lbl_filename.pack(side="left", padx=10)
 
-        # 子容器：選擇 FDF 檔
         fdf_frame = tk.Frame(btn_frame)
         fdf_frame.pack(side="left", padx=5)
 
-        self.btn_open_fdf = tk.Button(fdf_frame, text="選擇 FDF 檔", command=self.open_fdf)
+        self.btn_open_fdf = tk.Button(fdf_frame, text="載入 FDF", command=self.open_fdf)
         self.btn_open_fdf.pack(side="left")
 
-        self.lbl_fdfname = tk.Label(fdf_frame, text="（未選擇 FDF）", anchor="w")
+        self.lbl_fdfname = tk.Label(fdf_frame, text="（未載入 FDF）", anchor="w")
         self.lbl_fdfname.pack(side="left", padx=10)
 
         # === 工作表區 ===
@@ -52,7 +49,6 @@ class ExcelViewer:
         self.tree = ttk.Treeview(root)
         self.tree.pack(fill="both", expand=True, padx=5, pady=5)
 
-    # 讀取 Excel
     def open_file(self):
         self.file_path = filedialog.askopenfilename(
             filetypes=[("Excel files", "*.xls *.xlsx")]
@@ -63,7 +59,6 @@ class ExcelViewer:
         filename = self.file_path.split("/")[-1]
         self.lbl_filename.config(text=filename)
 
-        # Reset 狀態
         self.sheet_vars.clear()
         self.column_vars.clear()
         for widget in self.sheet_frame.winfo_children():
@@ -77,7 +72,6 @@ class ExcelViewer:
             row_frame = tk.Frame(self.sheet_frame)
             row_frame.pack(fill="x", pady=2, anchor="w")
 
-            # 勾選工作表
             var = tk.BooleanVar()
             cb = tk.Checkbutton(
                 row_frame,
@@ -88,14 +82,12 @@ class ExcelViewer:
             cb.pack(side="left", padx=5)
             self.sheet_vars[sheet_name] = var
 
-            # 預覽按鈕
             btn_preview = tk.Button(
                 row_frame, text="預覽",
                 command=lambda s=sheet_name: self.show_preview(s)
             )
             btn_preview.pack(side="left", padx=2)
 
-            # 全選 / 全部取消
             btn_select_all = tk.Button(
                 row_frame, text="全選",
                 command=lambda s=sheet_name: self.select_all_columns(s)
@@ -108,7 +100,6 @@ class ExcelViewer:
             )
             btn_deselect_all.pack(side="left", padx=2)
 
-            # 欄位勾選區
             col_frame = tk.Frame(row_frame)
             col_frame.pack(side="left", padx=10)
             self.column_vars[sheet_name] = {"frame": col_frame, "vars": {}, "widgets": {}}
@@ -126,6 +117,55 @@ class ExcelViewer:
                 cb_col.pack(side="left", padx=2)
                 self.column_vars[sheet_name]["vars"][j] = var_col
                 self.column_vars[sheet_name]["widgets"][j] = cb_col
+
+    def open_fdf(self):
+        self.fdf_path = filedialog.askopenfilename(filetypes=[("FDF files", "*.fdf")])
+        if not self.fdf_path:
+            return
+
+        filename = self.fdf_path.split("/")[-1]
+        self.lbl_fdfname.config(text=filename)
+
+        # === Reset ===
+        self.fdf_fields.clear()
+
+        with open(self.fdf_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        field = {}
+        for line in lines:
+            line = line.strip()
+            if line.startswith("[F"):
+                if field:
+                    self.fdf_fields.append(field)
+                field = {}
+            elif "=" in line:
+                k, v = line.split("=", 1)
+                if k == "Length":
+                    field["Length"] = int(v)
+                elif k == "Name":
+                    field["Name"] = v
+                elif k == "Type":
+                    field["Type"] = int(v)
+        if field:
+            self.fdf_fields.append(field)
+
+        self.preview_fdf()
+
+    def preview_fdf(self):
+        win = tk.Toplevel(self.root)
+        win.title("FDF 欄位預覽")
+        win.geometry("400x300")
+
+        tree = ttk.Treeview(win, columns=("Name", "Length", "Type"), show="headings")
+        tree.heading("Name", text="Name")
+        tree.heading("Length", text="Length")
+        tree.heading("Type", text="Type")
+
+        for field in self.fdf_fields:
+            tree.insert("", "end", values=(field["Name"], field["Length"], field["Type"]))
+
+        tree.pack(fill="both", expand=True)
 
     def toggle_sheet_columns(self, sheet_name):
         enabled = self.sheet_vars[sheet_name].get()
@@ -153,56 +193,12 @@ class ExcelViewer:
         for _, row in df.head(100).iterrows():
             self.tree.insert("", "end", values=list(row))
 
-    # 讀取 FDF 檔
-    def open_fdf(self):
-        self.fdf_path = filedialog.askopenfilename(filetypes=[("FDF files", "*.fdf")])
-        if not self.fdf_path:
-            return
-
-        filename = self.fdf_path.split("/")[-1]
-        self.lbl_fdfname.config(text=filename)
-
-        self.fdf_fields.clear()
-        with open(self.fdf_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-
-        field = {}
-        for line in lines:
-            line = line.strip()
-            if line.startswith("[F"):
-                if field:
-                    self.fdf_fields.append(field)
-                field = {}
-            elif "=" in line:
-                k, v = line.split("=", 1)
-                if k == "Length":
-                    field["Length"] = int(v)
-                elif k == "Name":
-                    field["Name"] = v
-                elif k == "Type":
-                    field["Type"] = int(v)
-        if field:
-            self.fdf_fields.append(field)
-
-        messagebox.showinfo("完成", f"已載入 {len(self.fdf_fields)} 個欄位定義")
-
-    # 補齊函數
-    def format_value(self, value, length, ftype):
-        value = str(value).strip()
-        if ftype == 1:  # 字符型：左對齊，右補空格
-            return value.ljust(length)[:length]
-        elif ftype == 2:  # 數字型：右對齊，左補 0
-            return value.rjust(length, "0")[-length:]
-        else:
-            return value.ljust(length)[:length]
-
-    # 生成 TXT
     def run(self):
         if not self.file_path:
             messagebox.showwarning("警告", "請先選擇 Excel 檔案")
             return
         if not self.fdf_fields:
-            messagebox.showwarning("警告", "請先選擇 FDF 檔案")
+            messagebox.showwarning("警告", "請先載入 FDF")
             return
 
         selected_sheets = [s for s, var in self.sheet_vars.items() if var.get()]
@@ -224,11 +220,15 @@ class ExcelViewer:
 
             for _, row in df_filtered.iterrows():
                 line = ""
-                for i, field in enumerate(self.fdf_fields):
-                    if i < len(row):
-                        line += self.format_value(row.iloc[i], field["Length"], field["Type"])
-                    else:
-                        line += self.format_value("", field["Length"], field["Type"])
+                for value, field in zip(row, self.fdf_fields):
+                    s = str(value)
+                    length = field["Length"]
+                    if field["Type"] == 1:  # 字串 → 左對齊，補空格
+                        s = s.ljust(length)[:length]
+                    else:  # 數字 → 右對齊，補0
+                        s = s.replace(".0", "")  # 移除浮點尾巴
+                        s = s.rjust(length, "0")[:length]
+                    line += s
                 all_texts.append(line)
 
         if not all_texts:
