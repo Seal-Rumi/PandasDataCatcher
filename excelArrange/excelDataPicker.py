@@ -5,10 +5,10 @@ from tkinter import ttk, filedialog, messagebox
 class ExcelCustomizerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Excel 客製化工具")
+        self.root.title("Excel 客製化工具 v1.1")
         self.root.geometry("1024x768")
 
-        # 上方 frame (選擇 Excel)
+        # 上方 frame
         self.top_frame = tk.Frame(root, height=50, bg="#e0e0e0")
         self.top_frame.pack(side="top", fill="x", padx=10, pady=5)
 
@@ -16,13 +16,13 @@ class ExcelCustomizerApp:
         self.file_label = tk.Label(self.top_frame, text="尚未選擇檔案", anchor="w")
         self.file_label.pack(side="left", fill="x", expand=True, padx=5, pady=5, anchor="w")
 
-        # 左右兩個 Frame
+        # 左右 frame
         self.left_frame = tk.Frame(root, width=400, bg="#dcdcdc")
         self.left_frame.pack(side="left", fill="y")
         self.right_frame = tk.Frame(root, width=400)
         self.right_frame.pack(side="right", fill="both", expand=True)
 
-        # 左側：工作表選擇 + 新增欄位按鈕
+        # 左側 controls
         top_controls_frame = tk.Frame(self.left_frame, bg="#dcdcdc")
         top_controls_frame.pack(fill="x", padx=5, pady=5)
         tk.Label(top_controls_frame, text="選擇工作表:", bg="#dcdcdc").pack(side="left")
@@ -31,7 +31,7 @@ class ExcelCustomizerApp:
         self.sheet_option.bind("<<ComboboxSelected>>", self.update_columns)
         tk.Button(top_controls_frame, text="新增欄位", command=self.add_custom_field).pack(side="left", padx=5)
 
-        # 標題列 frame
+        # 標題列
         self.header_frame = tk.Frame(self.left_frame, bg="#dcdcdc")
         self.header_frame.pack(fill="x", padx=5, pady=(10,5))
         tk.Label(self.header_frame, text="名稱", width=15, bg="#dcdcdc").pack(side="left")
@@ -44,34 +44,25 @@ class ExcelCustomizerApp:
         self.custom_fields_container.pack(fill="x")
         self.custom_fields_container.children_list = []
 
-        # 左下方按鈕：預覽 & 輸出
+        # 左下方按鈕
         bottom_buttons_frame = tk.Frame(self.left_frame, bg="#dcdcdc")
         bottom_buttons_frame.pack(side="bottom", fill="x", padx=5, pady=10)
         tk.Button(bottom_buttons_frame, text="預覽資料", command=self.preview_data).pack(side="left", padx=5)
         tk.Button(bottom_buttons_frame, text="輸出資料", command=self.export_data).pack(side="left", padx=5)
 
-        # Excel 物件
         self.excel_file = None
         self.df = None
         self.columns = []
-
-        # 預覽表格
         self.preview_table = None
 
     def load_file(self):
-        file_path = filedialog.askopenfilename(
-            title="選擇 Excel 檔案", 
-            filetypes=[("Excel files", "*.xlsx")]
-        )
+        file_path = filedialog.askopenfilename(title="選擇 Excel 檔案", filetypes=[("Excel files", "*.xlsx")])
         if not file_path:
             return
-
         if not file_path.lower().endswith(".xlsx"):
-            messagebox.showerror("錯誤", "目前程式僅支援 .xlsx 檔案")
+            messagebox.showerror("錯誤", "僅支援 .xlsx 檔")
             return
-
         self.file_label.config(text=file_path)
-
         try:
             self.excel_file = pd.ExcelFile(file_path)
             self.sheet_option['values'] = self.excel_file.sheet_names
@@ -98,21 +89,17 @@ class ExcelCustomizerApp:
         field_frame = tk.Frame(self.custom_fields_container, bg="#dcdcdc")
         field_frame.pack(fill="x", padx=5, pady=2)
 
-        # 名稱欄位
         name_entry = tk.Entry(field_frame, width=15)
         name_entry.pack(side="left")
 
-        # 選取器
         options = ["==自定義資料=="] + self.columns
         column_combobox = ttk.Combobox(field_frame, values=options, state="readonly", width=15)
         column_combobox.pack(side="left", padx=5)
 
-        # Value 欄位
         value_entry = tk.Entry(field_frame, width=15)
         value_entry.pack(side="left")
         value_entry.config(state="normal")
 
-        # 刪除按鈕
         delete_btn = tk.Button(field_frame, text="Del", command=lambda f=field_frame: self.delete_field(f))
         delete_btn.pack(side="left", padx=5)
 
@@ -144,12 +131,13 @@ class ExcelCustomizerApp:
             selected = column_combobox.get()
             if selected == "==自定義資料==":
                 data[col_name] = [value_entry.get()] * len(self.df)
-            else:
+            elif selected in self.columns:
                 data[col_name] = self.df[selected].tolist()
+            else:
+                continue  # 未勾選的欄位不加入
 
         preview_df = pd.DataFrame(data)
 
-        # 顯示在右側 frame
         for widget in self.right_frame.winfo_children():
             widget.destroy()
 
@@ -157,8 +145,15 @@ class ExcelCustomizerApp:
         self.preview_table.pack(fill="both", expand=True)
         self.preview_table["columns"] = list(preview_df.columns)
         self.preview_table["show"] = "headings"
+
+        # 自適應寬度
+        total_width = self.right_frame.winfo_width() or 400
+        col_count = len(preview_df.columns)
+        col_width = max(total_width // col_count, 50)
         for col in preview_df.columns:
             self.preview_table.heading(col, text=col)
+            self.preview_table.column(col, width=col_width, anchor="center")
+
         for _, row in preview_df.iterrows():
             self.preview_table.insert("", "end", values=list(row))
 

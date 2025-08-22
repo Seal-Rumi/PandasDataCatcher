@@ -11,10 +11,10 @@ class ExcelViewer:
 
         self.file_path = None
         self.excel_file = None
-        self.fdf_path = None
         self.sheet_vars = {}
         self.column_vars = {}
         self.fdf_fields = []
+        self.fdf_path = None
 
         # === 按鈕區 ===
         btn_frame = tk.Frame(root)
@@ -29,16 +29,17 @@ class ExcelViewer:
         self.btn_open = tk.Button(file_frame, text="選擇 Excel 檔", command=self.open_file)
         self.btn_open.pack(side="left")
 
-        self.lbl_filename = tk.Label(file_frame, text="（未選擇檔案）", anchor="w")
+        self.lbl_filename = tk.Label(file_frame, text="（未選擇 Excel）", anchor="w")
         self.lbl_filename.pack(side="left", padx=10)
 
+        # FDF 按鈕
         fdf_frame = tk.Frame(btn_frame)
-        fdf_frame.pack(side="left", padx=5)
+        fdf_frame.pack(side="left", padx=20)
 
         self.btn_open_fdf = tk.Button(fdf_frame, text="載入 FDF", command=self.open_fdf)
         self.btn_open_fdf.pack(side="left")
 
-        self.lbl_fdfname = tk.Label(fdf_frame, text="（未載入 FDF）", anchor="w")
+        self.lbl_fdfname = tk.Label(fdf_frame, text="（未選擇 FDF）", anchor="w")
         self.lbl_fdfname.pack(side="left", padx=10)
 
         # === 工作表區 ===
@@ -49,6 +50,7 @@ class ExcelViewer:
         self.tree = ttk.Treeview(root)
         self.tree.pack(fill="both", expand=True, padx=5, pady=5)
 
+    # === Excel ===
     def open_file(self):
         self.file_path = filedialog.askopenfilename(
             filetypes=[("Excel files", "*.xls *.xlsx")]
@@ -59,6 +61,7 @@ class ExcelViewer:
         filename = self.file_path.split("/")[-1]
         self.lbl_filename.config(text=filename)
 
+        # Reset
         self.sheet_vars.clear()
         self.column_vars.clear()
         for widget in self.sheet_frame.winfo_children():
@@ -66,6 +69,7 @@ class ExcelViewer:
         self.tree.delete(*self.tree.get_children())
         self.tree["columns"] = ()
 
+        # 載入
         self.excel_file = pd.ExcelFile(self.file_path)
 
         for i, sheet_name in enumerate(self.excel_file.sheet_names):
@@ -118,6 +122,42 @@ class ExcelViewer:
                 self.column_vars[sheet_name]["vars"][j] = var_col
                 self.column_vars[sheet_name]["widgets"][j] = cb_col
 
+    def toggle_sheet_columns(self, sheet_name):
+        enabled = self.sheet_vars[sheet_name].get()
+        for cb in self.column_vars[sheet_name]["widgets"].values():
+            cb.config(state="normal" if enabled else "disabled")
+
+    def select_all_columns(self, sheet_name):
+        for var in self.column_vars[sheet_name]["vars"].values():
+            var.set(True)
+
+    def deselect_all_columns(self, sheet_name):
+        for var in self.column_vars[sheet_name]["vars"].values():
+            var.set(False)
+
+    def show_preview(self, sheet_name):
+        df = pd.read_excel(self.file_path, sheet_name=sheet_name, header=0)
+
+        # 只取勾選欄位
+        selected_indexes = [
+            i for i, var in self.column_vars[sheet_name]["vars"].items() if var.get()
+        ]
+        if not selected_indexes:
+            messagebox.showinfo("提示", "請先勾選要預覽的欄位")
+            return
+        df_filtered = df.iloc[:, selected_indexes]
+
+        self.tree.delete(*self.tree.get_children())
+        self.tree["columns"] = list(df_filtered.columns)
+        self.tree["show"] = "headings"
+        for col in df_filtered.columns:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=120, anchor="center")
+
+        for _, row in df_filtered.head(100).iterrows():
+            self.tree.insert("", "end", values=list(row))
+
+    # === FDF ===
     def open_fdf(self):
         self.fdf_path = filedialog.askopenfilename(filetypes=[("FDF files", "*.fdf")])
         if not self.fdf_path:
@@ -126,7 +166,7 @@ class ExcelViewer:
         filename = self.fdf_path.split("/")[-1]
         self.lbl_fdfname.config(text=filename)
 
-        # === Reset ===
+        # Reset
         self.fdf_fields.clear()
 
         with open(self.fdf_path, "r", encoding="utf-8") as f:
@@ -165,40 +205,22 @@ class ExcelViewer:
         for field in self.fdf_fields:
             tree.insert("", "end", values=(field["Name"], field["Length"], field["Type"]))
 
+        # 平均分配欄位寬度
+        total_width = 380
+        col_count = len(tree["columns"])
+        col_width = total_width // col_count
+        for col in tree["columns"]:
+            tree.column(col, width=col_width, anchor="center")
+
         tree.pack(fill="both", expand=True)
 
-    def toggle_sheet_columns(self, sheet_name):
-        enabled = self.sheet_vars[sheet_name].get()
-        for cb in self.column_vars[sheet_name]["widgets"].values():
-            cb.config(state="normal" if enabled else "disabled")
-
-    def select_all_columns(self, sheet_name):
-        for var in self.column_vars[sheet_name]["vars"].values():
-            var.set(True)
-
-    def deselect_all_columns(self, sheet_name):
-        for var in self.column_vars[sheet_name]["vars"].values():
-            var.set(False)
-
-    def show_preview(self, sheet_name):
-        df = pd.read_excel(self.file_path, sheet_name=sheet_name, header=0)
-
-        self.tree.delete(*self.tree.get_children())
-        self.tree["columns"] = list(df.columns)
-        self.tree["show"] = "headings"
-        for col in df.columns:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, width=120, anchor="center")
-
-        for _, row in df.head(100).iterrows():
-            self.tree.insert("", "end", values=list(row))
-
+    # === 匯出 ===
     def run(self):
         if not self.file_path:
             messagebox.showwarning("警告", "請先選擇 Excel 檔案")
             return
         if not self.fdf_fields:
-            messagebox.showwarning("警告", "請先載入 FDF")
+            messagebox.showwarning("警告", "請先載入 FDF 檔案")
             return
 
         selected_sheets = [s for s, var in self.sheet_vars.items() if var.get()]
@@ -209,35 +231,34 @@ class ExcelViewer:
         all_texts = []
         for sheet_name in selected_sheets:
             df = pd.read_excel(self.file_path, header=0, sheet_name=sheet_name)
-
             selected_indexes = [
                 i for i, var in self.column_vars[sheet_name]["vars"].items() if var.get()
             ]
             if not selected_indexes:
                 continue
-
             df_filtered = df.iloc[:, selected_indexes].fillna("")
 
+            # 套用 FDF 格式化
             for _, row in df_filtered.iterrows():
-                line = ""
-                for value, field in zip(row, self.fdf_fields):
+                formatted_line = ""
+                for value, fdf in zip(row, self.fdf_fields):
+                    length = fdf["Length"]
+                    ftype = fdf["Type"]
                     s = str(value)
-                    length = field["Length"]
-                    if field["Type"] == 1:  # 字串 → 左對齊，補空格
-                        s = s.ljust(length)[:length]
-                    else:  # 數字 → 右對齊，補0
-                        s = s.replace(".0", "")  # 移除浮點尾巴
-                        s = s.rjust(length, "0")[:length]
-                    line += s
-                all_texts.append(line)
+                    if ftype == 1:  # 文字 左對齊 補空白
+                        formatted_line += s.ljust(length)[:length]
+                    elif ftype == 2:  # 數字 右對齊 補0
+                        formatted_line += s.rjust(length, "0")[:length]
+                    else:
+                        formatted_line += s[:length]
+                all_texts.append(formatted_line)
 
         if not all_texts:
             messagebox.showwarning("警告", "沒有可輸出的資料")
             return
 
         save_path = filedialog.asksaveasfilename(
-            defaultextension=".txt",
-            filetypes=[("Text files", "*.txt")]
+            defaultextension=".txt", filetypes=[("Text files", "*.txt")]
         )
         if save_path:
             with open(save_path, "w", encoding="utf-8") as f:
